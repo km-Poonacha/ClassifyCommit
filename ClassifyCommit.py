@@ -231,6 +231,10 @@ def main():
         print("*** MLP Classifier - Two stage - "+i+"3 ***")
         p_train_s2,p_test_s2 = MLPmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
         
+        #Stage 2 in RF Model
+        print("*** MLP stage one, RF stage two classifier - Two stage - "+i+"3 ***")
+        p_train_s2,p_test_s2 = RFCmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
+        
         # Single stage
         train_x_1s = hstack((train_x,df_train['Files Changed'].astype(float).values[:, None], df_train['nAdditions'].astype(float).values[:, None], df_train['nDeletions'].astype(float).values[:, None], df_train['Parents'].astype(float).values[:, None] ,df_train['nWords'].astype(float).values[:, None]))
         test_x_1s = hstack((test_x,df_test['Files Changed'].astype(float).values[:, None], df_test['nAdditions'].astype(float).values[:, None], df_test['nDeletions'].astype(float).values[:, None], df_test['Parents'].astype(float).values[:, None], df_test['nWords'].astype(float).values[:, None]))
@@ -256,6 +260,9 @@ def main():
         print("*** RF Classifier - Two stage - "+i+"3 ***")
         p_train_s2,p_test_s2 = RFCmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
         
+        print("*** RF stage  one and MLP stage 2 - Two stage - "+i+"3 ***")
+        p_train_s2,p_test_s2 = MLPmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
+                
         # Single stage
         print("*** RF Classifier - One stage - All features - "+i+"5 ***")
         p_train_1s,p_test_1s = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = True)
