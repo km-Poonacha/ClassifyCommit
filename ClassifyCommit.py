@@ -14,12 +14,9 @@ from sklearn.utils import shuffle #To shuffle the dataframe
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn import svm
 from scipy.sparse import hstack
 import matplotlib.pyplot as plt
 from sklearn.model_selection import learning_curve
-from sklearn.model_selection import ShuffleSplit
 
 
 TRAIN_CSV = 'C:/Users/kmpoo/Dropbox/HEC/Project 5 - Roles and Coordination/Data/ML/Commit Creativity - Train2.csv'
@@ -104,11 +101,7 @@ def plot_learning_curve_std(estimator, X, y):
     # Draw lines
     plt.plot(train_sizes, train_mean, '--', color="#111111",  label="Training score")
     plt.plot(train_sizes, test_mean, color="#111111", label="Cross-validation score")
-    
-    # Draw bands
-#    plt.fill_between(train_sizes, train_mean - train_std, train_mean + train_std, color="#DDDDDD")
-#    plt.fill_between(train_sizes, test_mean - test_std, test_mean + test_std, color="#DDDDDD")
-    
+        
     # Create plot
     plt.title("Learning Curve")
     plt.xlabel("Training Set Size"), plt.ylabel("Accuracy Score"), plt.legend(loc="best")
@@ -121,9 +114,12 @@ def getnoelements(x):
     no_parents = len(ast.literal_eval(x))
     return no_parents
     
-def dataclean(dataframe):
-    """Various cleaning done for trainig data"""
+def getVDF(TRAIN_CSV):
+    """Get data from the training sample CSV and perform various cleaning and data preprocessing"""
+    dataframe = pd.read_csv(TRAIN_CSV, sep=",",error_bad_lines=False,header= 0, low_memory=False, encoding = "Latin1")
+
     dataframe = dataframe.drop(axis=1,columns=['Commit URL', 'Sha','URL','Committer Name','Committer Email','Commit Date ','Verification','Author Date'])
+    # Shuffle the dataframe
     dataframe = shuffle(dataframe)
     # Encode type of commit
     dataframe = dataframe.assign(CommitType = lambda x: x['Type of Commit (Primary)'].str.split().str.get(0).str.strip(','))
@@ -162,31 +158,27 @@ def dataclean(dataframe):
     return dataframe, dataframe_sd
 
 def vectordsc(corpus, train_text, test_text):
-    # convert dtype object to unicode
-#    vectorizer = CountVectorizer()
-    # X = vectorizer.fit_transform(corpus.values.astype('U')) #BOW unigram representaion 
-    # X is a sparse matrix
+    """Convert the description text into ngram vector of features. Sparse matrix format"""
     word_vectorizer = TfidfVectorizer(
                                         sublinear_tf=True,
                                         strip_accents='unicode',
                                         analyzer='word',
                                         token_pattern=r'\w{1,}',
                                         stop_words='english',
-                                        ngram_range=(1, 1),
+                                        ngram_range=(1, 2),
                                         max_features=10000)
-#    bigram_vectorizer = CountVectorizer(ngram_range=(1, 2),token_pattern=r'\b\w+\b', min_df=1)
-#    analyze = bigram_vectorizer.build_analyzer()
-#    Y = bigram_vectorizer.fit_transform(corpus.values.astype('U')).toarray()
+
     word_vectorizer.fit(corpus)
     train_word_features = word_vectorizer.transform(train_text)
     test_word_features = word_vectorizer.transform(test_text)
     return train_word_features, test_word_features
 
 def MLPmodel(train_x, train_y, test_x, test_y, LCurve = False):
+    """MLP classifier model"""
     nn = MLPClassifier(
                         hidden_layer_sizes=(100,),  activation='relu', solver='adam', alpha=0.001, batch_size='auto',
                         learning_rate='constant', learning_rate_init=0.001, power_t=0.5, max_iter=1000, shuffle=True,
-                        random_state=9, tol=0.0001, verbose=False, warm_start=False, momentum=0.9, nesterovs_momentum=True,
+                        random_state=None, tol=0.0001, verbose=False, warm_start=False, momentum=0.9, nesterovs_momentum=True,
                         early_stopping=False, validation_fraction=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
     n = nn.fit(train_x, train_y)
     p_train = n.predict_proba(train_x)
@@ -196,6 +188,7 @@ def MLPmodel(train_x, train_y, test_x, test_y, LCurve = False):
     return p_train,p_test
 
 def RFCmodel(train_x, train_y, test_x, test_y, LCurve = False):
+    """Random forest Classifier model"""
     rfc = RandomForestClassifier(n_estimators=10)
     r = rfc.fit(train_x, train_y)
     print("accuracy of rfc is = ", r.score(test_x,test_y))
@@ -207,21 +200,19 @@ def RFCmodel(train_x, train_y, test_x, test_y, LCurve = False):
 
 pd.options.display.max_rows = 10
 pd.options.display.float_format = '{:.3f}'.format
-
-vector_dataframe = pd.read_csv(TRAIN_CSV, sep=",",error_bad_lines=False,header= 0, low_memory=False, encoding = "Latin1")
-
-# Shuffle the dataframe
-vector_dataframe, vector_dataframe_sd = dataclean(vector_dataframe)
+vector_dataframe, vector_dataframe_sd = getVDF(TRAIN_CSV)
+# Save the full labeled data sample post processing in CSV
 vector_dataframe.to_csv(LABELFULL_CSV)
+#Split vector data frame into training and test samples
 df_train, df_test = train_test_split(vector_dataframe, test_size=0.2)
+#Reset the indices for merging other features later on
 df_train=df_train.reset_index()
 df_test = df_test.reset_index()
-t0 = time()
-train_x, test_x = vectordsc(vector_dataframe['Description'], df_train['Description'], df_test['Description'] )
-print("Time to extract features = ", time() - t0)
+#Create new CSV represnting the training and testing samples
 df_train.to_csv(TRAINSET_CSV)
 df_test.to_csv(TESTSET_CSV)
-train_y = df_train['Novelty ']
+#Convert description text into a vetor of features. Train_x,test_x are in sparse matrix format
+train_x, test_x = vectordsc(vector_dataframe['Description'], df_train['Description'], df_test['Description'] )
 
 for i in ["Novelty", "Usefulness"]:
     '''MLPClassifier'''
@@ -268,6 +259,6 @@ for i in ["Novelty", "Usefulness"]:
     # Single stage
     print("*** RF Classifier - One stage - All features - "+i+"5 ***")
     p_train_1s,p_test_1s = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = True)
-    print("*** MLP Classifier - One stage - All features - "+i+"3 ***")
+    print("*** RF Classifier - One stage - All features - "+i+"3 ***")
     p_train3_1s,p_test3_1s = RFCmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
         
