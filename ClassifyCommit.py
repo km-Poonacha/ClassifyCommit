@@ -77,6 +77,8 @@ def plot_learning_curve_std(estimator, X, y):
         Note that for classification the number of samples usually have to
         be big enough to contain at least one sample from each class.
         (default: np.linspace(0.1, 1.0, 5))
+        
+        ref: https://chrisalbon.com/machine_learning/model_evaluation/plot_the_learning_curve/
     """
     train_sizes, train_scores, test_scores = learning_curve( RandomForestClassifier(), 
                                                             X, 
@@ -92,11 +94,9 @@ def plot_learning_curve_std(estimator, X, y):
     
     # Create means and standard deviations of training set scores
     train_mean = np.mean(train_scores, axis=1)
-    train_std = np.std(train_scores, axis=1)
     
     # Create means and standard deviations of test set scores
     test_mean = np.mean(test_scores, axis=1)
-    test_std = np.std(test_scores, axis=1)
     
     # Draw lines
     plt.plot(train_sizes, train_mean, '--', color="#111111",  label="Training score")
