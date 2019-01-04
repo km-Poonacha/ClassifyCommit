@@ -197,68 +197,71 @@ def RFCmodel(train_x, train_y, test_x, test_y, LCurve = False):
     if LCurve: plot_learning_curve_std(rfc, train_x, train_y)
     return p_train,p_test
 
-
-pd.options.display.max_rows = 10
-pd.options.display.float_format = '{:.3f}'.format
-vector_dataframe, vector_dataframe_sd = getVDF(TRAIN_CSV)
-# Save the full labeled data sample post processing in CSV
-vector_dataframe.to_csv(LABELFULL_CSV)
-#Split vector data frame into training and test samples
-df_train, df_test = train_test_split(vector_dataframe, test_size=0.2)
-#Reset the indices for merging other features later on
-df_train=df_train.reset_index()
-df_test = df_test.reset_index()
-#Create new CSV represnting the training and testing samples
-df_train.to_csv(TRAINSET_CSV)
-df_test.to_csv(TESTSET_CSV)
-#Convert description text into a vetor of features. Train_x,test_x are in sparse matrix format
-train_x, test_x = vectordsc(vector_dataframe['Description'], df_train['Description'], df_test['Description'] )
-
-for i in ["Novelty", "Usefulness"]:
-    '''MLPClassifier'''
-    print("************ MLP Classifier *************")
-    #Stage 1  
-    print("*** MLP Classifier - One stage - "+i+"5 ***")
-    p_train,p_test = MLPmodel(train_x, df_train[i+' '], test_x, df_test[i+' '])
-    print("*** MLP Classifier - One stage - "+i+"3 ***")
-    p_train2,p_test2 = MLPmodel(train_x, df_train[i+'3'], test_x, df_test[i+'3'])
+def main():
+    pd.options.display.max_rows = 10
+    pd.options.display.float_format = '{:.3f}'.format
+    vector_dataframe, vector_dataframe_sd = getVDF(TRAIN_CSV)
+    # Save the full labeled data sample post processing in CSV
+    vector_dataframe.to_csv(LABELFULL_CSV)
+    #Split vector data frame into training and test samples
+    df_train, df_test = train_test_split(vector_dataframe, test_size=0.2)
+    #Reset the indices for merging other features later on
+    df_train=df_train.reset_index()
+    df_test = df_test.reset_index()
+    #Create new CSV represnting the training and testing samples
+    df_train.to_csv(TRAINSET_CSV)
+    df_test.to_csv(TESTSET_CSV)
+    #Convert description text into a vetor of features. Train_x,test_x are in sparse matrix format
+    train_x, test_x = vectordsc(vector_dataframe['Description'], df_train['Description'], df_test['Description'] )
     
-    #Stage 2
-    df_train_prob = pd.DataFrame(p_train, columns = ['p1','p2','p3','p4','p5'])
-    train_x_s2 = pd.concat([df_train_prob,df_train['Files Changed'],df_train['nAdditions'],df_train['nDeletions'],df_train['Parents'],df_train['nWords']], axis=1)
-    df_test_prob = pd.DataFrame(p_test, columns = ['p1','p2','p3','p4','p5'])
-    test_x_s2 = pd.concat([df_test_prob,df_test['Files Changed'],df_test['nAdditions'],df_test['nDeletions'],df_test['Parents'],df_test['nWords']], axis=1)
-    print("*** MLP Classifier - Two stage - "+i+"3 ***")
-    p_train_s2,p_test_s2 = MLPmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
-    
-    # Single stage
-    train_x_1s = hstack((train_x,df_train['Files Changed'].astype(float).values[:, None], df_train['nAdditions'].astype(float).values[:, None], df_train['nDeletions'].astype(float).values[:, None], df_train['Parents'].astype(float).values[:, None] ,df_train['nWords'].astype(float).values[:, None]))
-    test_x_1s = hstack((test_x,df_test['Files Changed'].astype(float).values[:, None], df_test['nAdditions'].astype(float).values[:, None], df_test['nDeletions'].astype(float).values[:, None], df_test['Parents'].astype(float).values[:, None], df_test['nWords'].astype(float).values[:, None]))
-    print("*** MLP Classifier - One stage - All features - "+i+"5 ***")
-    p_train_1s,p_test_1s = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = True)
-    print("*** MLP Classifier - One stage - All features - "+i+"3 ***")
-    p_train3_1s,p_test3_1s = MLPmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
-    
-    
-    '''Random Forest'''
-    print("************ Random Forest *************")
-    #Stage 1  
-    print("*** RF Classifier - One stage - "+i+"5 ***")
-    p_train,p_test = RFCmodel(train_x, df_train[i+' '], test_x, df_test[i+' '])
-    print("*** RF Classifier - One stage - "+i+"3 ***")
-    p_train2,p_test2 = RFCmodel(train_x, df_train[i+'3'], test_x, df_test[i+'3'])
-    
-    #Stage 2
-    df_train_prob = pd.DataFrame(p_train, columns = ['p1','p2','p3','p4','p5'])
-    train_x_s2 = pd.concat([df_train_prob,df_train['Files Changed'],df_train['nAdditions'],df_train['nDeletions'],df_train['Parents'],df_train['nWords']], axis=1)
-    df_test_prob = pd.DataFrame(p_test, columns = ['p1','p2','p3','p4','p5'])
-    test_x_s2 = pd.concat([df_test_prob,df_test['Files Changed'],df_test['nAdditions'],df_test['nDeletions'],df_test['Parents'],df_test['nWords']], axis=1)
-    print("*** RF Classifier - Two stage - "+i+"3 ***")
-    p_train_s2,p_test_s2 = RFCmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
-    
-    # Single stage
-    print("*** RF Classifier - One stage - All features - "+i+"5 ***")
-    p_train_1s,p_test_1s = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = True)
-    print("*** RF Classifier - One stage - All features - "+i+"3 ***")
-    p_train3_1s,p_test3_1s = RFCmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
+    for i in ["Novelty", "Usefulness"]:
+        '''MLPClassifier'''
+        print("************ MLP Classifier *************")
+        #Stage 1  
+        print("*** MLP Classifier - One stage - "+i+"5 ***")
+        p_train,p_test = MLPmodel(train_x, df_train[i+' '], test_x, df_test[i+' '])
+        print("*** MLP Classifier - One stage - "+i+"3 ***")
+        p_train2,p_test2 = MLPmodel(train_x, df_train[i+'3'], test_x, df_test[i+'3'])
         
+        #Stage 2
+        df_train_prob = pd.DataFrame(p_train, columns = ['p1','p2','p3','p4','p5'])
+        train_x_s2 = pd.concat([df_train_prob,df_train['Files Changed'],df_train['nAdditions'],df_train['nDeletions'],df_train['Parents'],df_train['nWords']], axis=1)
+        df_test_prob = pd.DataFrame(p_test, columns = ['p1','p2','p3','p4','p5'])
+        test_x_s2 = pd.concat([df_test_prob,df_test['Files Changed'],df_test['nAdditions'],df_test['nDeletions'],df_test['Parents'],df_test['nWords']], axis=1)
+        print("*** MLP Classifier - Two stage - "+i+"3 ***")
+        p_train_s2,p_test_s2 = MLPmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
+        
+        # Single stage
+        train_x_1s = hstack((train_x,df_train['Files Changed'].astype(float).values[:, None], df_train['nAdditions'].astype(float).values[:, None], df_train['nDeletions'].astype(float).values[:, None], df_train['Parents'].astype(float).values[:, None] ,df_train['nWords'].astype(float).values[:, None]))
+        test_x_1s = hstack((test_x,df_test['Files Changed'].astype(float).values[:, None], df_test['nAdditions'].astype(float).values[:, None], df_test['nDeletions'].astype(float).values[:, None], df_test['Parents'].astype(float).values[:, None], df_test['nWords'].astype(float).values[:, None]))
+        print("*** MLP Classifier - One stage - All features - "+i+"5 ***")
+        p_train_1s,p_test_1s = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = True)
+        print("*** MLP Classifier - One stage - All features - "+i+"3 ***")
+        p_train3_1s,p_test3_1s = MLPmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
+        
+        
+        '''Random Forest'''
+        print("************ Random Forest *************")
+        #Stage 1  
+        print("*** RF Classifier - One stage - "+i+"5 ***")
+        p_train,p_test = RFCmodel(train_x, df_train[i+' '], test_x, df_test[i+' '])
+        print("*** RF Classifier - One stage - "+i+"3 ***")
+        p_train2,p_test2 = RFCmodel(train_x, df_train[i+'3'], test_x, df_test[i+'3'])
+        
+        #Stage 2
+        df_train_prob = pd.DataFrame(p_train, columns = ['p1','p2','p3','p4','p5'])
+        train_x_s2 = pd.concat([df_train_prob,df_train['Files Changed'],df_train['nAdditions'],df_train['nDeletions'],df_train['Parents'],df_train['nWords']], axis=1)
+        df_test_prob = pd.DataFrame(p_test, columns = ['p1','p2','p3','p4','p5'])
+        test_x_s2 = pd.concat([df_test_prob,df_test['Files Changed'],df_test['nAdditions'],df_test['nDeletions'],df_test['Parents'],df_test['nWords']], axis=1)
+        print("*** RF Classifier - Two stage - "+i+"3 ***")
+        p_train_s2,p_test_s2 = RFCmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
+        
+        # Single stage
+        print("*** RF Classifier - One stage - All features - "+i+"5 ***")
+        p_train_1s,p_test_1s = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = True)
+        print("*** RF Classifier - One stage - All features - "+i+"3 ***")
+        p_train3_1s,p_test3_1s = RFCmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
+            
+if __name__ == '__main__':
+  main()
+  
