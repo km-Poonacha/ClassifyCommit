@@ -85,13 +85,13 @@ def plot_learning_curve_std(estimator, X, y):
                                                             X, 
                                                             y,
                                                             # Number of folds in cross-validation
-                                                            cv= 10,
+                                                            cv= 3,
                                                             # Evaluation metric
                                                             scoring='accuracy',
                                                             # Use all computer cores
                                                             n_jobs=1, 
                                                             # 50 different sizes of the training set
-                                                            train_sizes=np.linspace(0.001, 1.0, 20))
+                                                            train_sizes=np.linspace(0.001, 1.0, 5))
     
     # Create means and standard deviations of training set scores
     train_mean = np.mean(train_scores, axis=1)
@@ -106,8 +106,8 @@ def plot_learning_curve_std(estimator, X, y):
     plt.plot(train_sizes, test_mean, color="#111111", label="Cross-validation score")
     
     # Draw bands
-    plt.fill_between(train_sizes, train_mean - train_std, train_mean + train_std, color="#DDDDDD")
-    plt.fill_between(train_sizes, test_mean - test_std, test_mean + test_std, color="#DDDDDD")
+#    plt.fill_between(train_sizes, train_mean - train_std, train_mean + train_std, color="#DDDDDD")
+#    plt.fill_between(train_sizes, test_mean - test_std, test_mean + test_std, color="#DDDDDD")
     
     # Create plot
     plt.title("Learning Curve")
@@ -182,7 +182,7 @@ def vectordsc(corpus, train_text, test_text):
     test_word_features = word_vectorizer.transform(test_text)
     return train_word_features, test_word_features
 
-def MLPmodel(train_x, train_y, test_x, test_y):
+def MLPmodel(train_x, train_y, test_x, test_y, LCurve = False):
     nn = MLPClassifier(
                         hidden_layer_sizes=(100,),  activation='relu', solver='adam', alpha=0.001, batch_size='auto',
                         learning_rate='constant', learning_rate_init=0.001, power_t=0.5, max_iter=1000, shuffle=True,
@@ -192,25 +192,17 @@ def MLPmodel(train_x, train_y, test_x, test_y):
     p_train = n.predict_proba(train_x)
     p_test = n.predict_proba(test_x)
     print("accuracy is = ", n.score(test_x,test_y))
-    plot_learning_curve_std(nn, train_x, train_y)
+    if LCurve: plot_learning_curve_std(nn, train_x, train_y)
     return p_train,p_test
 
-def RFCmodel(train_x, train_y, test_x, test_y):
+def RFCmodel(train_x, train_y, test_x, test_y, LCurve = False):
     rfc = RandomForestClassifier(n_estimators=10)
     r = rfc.fit(train_x, train_y)
     print("accuracy of rfc is = ", r.score(test_x,test_y))
     p_train = r.predict_proba(train_x)
     p_test = r.predict_proba(test_x)
-    plot_learning_curve_std(rfc, train_x, train_y)
+    if LCurve: plot_learning_curve_std(rfc, train_x, train_y)
     return p_train,p_test
-
-def SVMmodel(train_x, train_y, test_x, test_y):
-    svc = svm.SVC(kernel='linear',probability=True)  
-    s = svc.fit(train_x, train_y)
-    print("accuracy of svm is = ", s.score(test_x,test_y))
-    p_train = s.predict_proba(train_x)
-    p_test = s.predict_proba(test_x)
-    return p_train,p_test  
 
 
 pd.options.display.max_rows = 10
@@ -231,47 +223,51 @@ df_train.to_csv(TRAINSET_CSV)
 df_test.to_csv(TESTSET_CSV)
 train_y = df_train['Novelty ']
 
-
-'''MLPClassifier'''
-#Stage 1  
-p_train,p_test = MLPmodel(train_x, df_train['Novelty '], test_x, df_test['Novelty '])
-p_train2,p_test2 = MLPmodel(train_x, df_train['Novelty3'], test_x, df_test['Novelty3'])
-
-#Stage 2
-df_train_prob = pd.DataFrame(p_train, columns = ['p1','p2','p3','p4','p5'])
-train_x_s2 = pd.concat([df_train_prob,df_train['Files Changed'],df_train['nAdditions'],df_train['nDeletions'],df_train['Parents'],df_train['nWords']], axis=1)
-df_test_prob = pd.DataFrame(p_test, columns = ['p1','p2','p3','p4','p5'])
-test_x_s2 = pd.concat([df_test_prob,df_test['Files Changed'],df_test['nAdditions'],df_test['nDeletions'],df_test['Parents'],df_test['nWords']], axis=1)
-
-p_train_s2,p_test_s2 = MLPmodel(train_x_s2, df_train['Novelty3'], test_x_s2, df_test['Novelty3'])
-
-# Single stage
-train_x_1s = hstack((train_x,df_train['Files Changed'].astype(float).values[:, None], df_train['nAdditions'].astype(float).values[:, None], df_train['nDeletions'].astype(float).values[:, None], df_train['Parents'].astype(float).values[:, None] ,df_train['nWords'].astype(float).values[:, None]))
-test_x_1s = hstack((test_x,df_test['Files Changed'].astype(float).values[:, None], df_test['nAdditions'].astype(float).values[:, None], df_test['nDeletions'].astype(float).values[:, None], df_test['Parents'].astype(float).values[:, None], df_test['nWords'].astype(float).values[:, None]))
-p_train_1s,p_test_1s = MLPmodel(train_x_1s, df_train['Novelty '], test_x_1s, df_test['Novelty '])
-p_train3_1s,p_test3_1s = MLPmodel(train_x_1s, df_train['Novelty3'], test_x_1s, df_test['Novelty3'])
-
-
-'''Random Forest'''
-print("************ Random Forest *************")
-#Stage 1  
-p_train,p_test = RFCmodel(train_x, df_train['Novelty '], test_x, df_test['Novelty '])
-p_train2,p_test2 = RFCmodel(train_x, df_train['Novelty3'], test_x, df_test['Novelty3'])
-
-#Stage 2
-df_train_prob = pd.DataFrame(p_train, columns = ['p1','p2','p3','p4','p5'])
-train_x_s2 = pd.concat([df_train_prob,df_train['Files Changed'],df_train['nAdditions'],df_train['nDeletions'],df_train['Parents'],df_train['nWords']], axis=1)
-df_test_prob = pd.DataFrame(p_test, columns = ['p1','p2','p3','p4','p5'])
-test_x_s2 = pd.concat([df_test_prob,df_test['Files Changed'],df_test['nAdditions'],df_test['nDeletions'],df_test['Parents'],df_test['nWords']], axis=1)
-
-p_train_s2,p_test_s2 = RFCmodel(train_x_s2, df_train['Novelty3'], test_x_s2, df_test['Novelty3'])
-
-# Single stage
-train_x_1s = hstack((train_x,df_train['Files Changed'].astype(float).values[:, None], df_train['nAdditions'].astype(float).values[:, None], df_train['nDeletions'].astype(float).values[:, None], df_train['Parents'].astype(float).values[:, None] ,df_train['nWords'].astype(float).values[:, None]))
-test_x_1s = hstack((test_x,df_test['Files Changed'].astype(float).values[:, None], df_test['nAdditions'].astype(float).values[:, None], df_test['nDeletions'].astype(float).values[:, None], df_test['Parents'].astype(float).values[:, None], df_test['nWords'].astype(float).values[:, None]))
-p_train_1s,p_test_1s = RFCmodel(train_x_1s, df_train['Novelty '], test_x_1s, df_test['Novelty '])
-p_train3_1s,p_test3_1s = RFCmodel(train_x_1s, df_train['Novelty3'], test_x_1s, df_test['Novelty3'])
-
-
-# Create CV training and test scores for various training set sizes
-
+for i in ["Novelty", "Usefulness"]:
+    '''MLPClassifier'''
+    print("************ MLP Classifier *************")
+    #Stage 1  
+    print("*** MLP Classifier - One stage - "+i+"5 ***")
+    p_train,p_test = MLPmodel(train_x, df_train[i+' '], test_x, df_test[i+' '])
+    print("*** MLP Classifier - One stage - "+i+"3 ***")
+    p_train2,p_test2 = MLPmodel(train_x, df_train[i+'3'], test_x, df_test[i+'3'])
+    
+    #Stage 2
+    df_train_prob = pd.DataFrame(p_train, columns = ['p1','p2','p3','p4','p5'])
+    train_x_s2 = pd.concat([df_train_prob,df_train['Files Changed'],df_train['nAdditions'],df_train['nDeletions'],df_train['Parents'],df_train['nWords']], axis=1)
+    df_test_prob = pd.DataFrame(p_test, columns = ['p1','p2','p3','p4','p5'])
+    test_x_s2 = pd.concat([df_test_prob,df_test['Files Changed'],df_test['nAdditions'],df_test['nDeletions'],df_test['Parents'],df_test['nWords']], axis=1)
+    print("*** MLP Classifier - Two stage - "+i+"3 ***")
+    p_train_s2,p_test_s2 = MLPmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
+    
+    # Single stage
+    train_x_1s = hstack((train_x,df_train['Files Changed'].astype(float).values[:, None], df_train['nAdditions'].astype(float).values[:, None], df_train['nDeletions'].astype(float).values[:, None], df_train['Parents'].astype(float).values[:, None] ,df_train['nWords'].astype(float).values[:, None]))
+    test_x_1s = hstack((test_x,df_test['Files Changed'].astype(float).values[:, None], df_test['nAdditions'].astype(float).values[:, None], df_test['nDeletions'].astype(float).values[:, None], df_test['Parents'].astype(float).values[:, None], df_test['nWords'].astype(float).values[:, None]))
+    print("*** MLP Classifier - One stage - All features - "+i+"5 ***")
+    p_train_1s,p_test_1s = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = True)
+    print("*** MLP Classifier - One stage - All features - "+i+"3 ***")
+    p_train3_1s,p_test3_1s = MLPmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
+    
+    
+    '''Random Forest'''
+    print("************ Random Forest *************")
+    #Stage 1  
+    print("*** RF Classifier - One stage - "+i+"5 ***")
+    p_train,p_test = RFCmodel(train_x, df_train[i+' '], test_x, df_test[i+' '])
+    print("*** RF Classifier - One stage - "+i+"3 ***")
+    p_train2,p_test2 = RFCmodel(train_x, df_train[i+'3'], test_x, df_test[i+'3'])
+    
+    #Stage 2
+    df_train_prob = pd.DataFrame(p_train, columns = ['p1','p2','p3','p4','p5'])
+    train_x_s2 = pd.concat([df_train_prob,df_train['Files Changed'],df_train['nAdditions'],df_train['nDeletions'],df_train['Parents'],df_train['nWords']], axis=1)
+    df_test_prob = pd.DataFrame(p_test, columns = ['p1','p2','p3','p4','p5'])
+    test_x_s2 = pd.concat([df_test_prob,df_test['Files Changed'],df_test['nAdditions'],df_test['nDeletions'],df_test['Parents'],df_test['nWords']], axis=1)
+    print("*** RF Classifier - Two stage - "+i+"3 ***")
+    p_train_s2,p_test_s2 = RFCmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
+    
+    # Single stage
+    print("*** RF Classifier - One stage - All features - "+i+"5 ***")
+    p_train_1s,p_test_1s = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = True)
+    print("*** MLP Classifier - One stage - All features - "+i+"3 ***")
+    p_train3_1s,p_test3_1s = RFCmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
+        
