@@ -84,7 +84,7 @@ def plot_learning_curve_std(estimator, X, y):
                                                             X, 
                                                             y,
                                                             # Number of folds in cross-validation
-                                                            cv= 3,
+                                                            cv= 5,
                                                             # Evaluation metric
                                                             scoring='accuracy',
                                                             # Use all computer cores
@@ -183,19 +183,21 @@ def MLPmodel(train_x, train_y, test_x, test_y, LCurve = False):
     n = nn.fit(train_x, train_y)
     p_train = n.predict_proba(train_x)
     p_test = n.predict_proba(test_x)
-    print("accuracy is = ", n.score(test_x,test_y))
+    acc = n.score(test_x,test_y)
+    print("accuracy is = ",  acc)
     if LCurve: plot_learning_curve_std(nn, train_x, train_y)
-    return p_train,p_test
+    return p_train, p_test, acc
 
 def RFCmodel(train_x, train_y, test_x, test_y, LCurve = False):
     """Random forest Classifier model"""
     rfc = RandomForestClassifier(n_estimators=10)
     r = rfc.fit(train_x, train_y)
-    print("accuracy of rfc is = ", r.score(test_x,test_y))
+    acc = r.score(test_x,test_y)
+    print("accuracy of rfc is = ", acc)
     p_train = r.predict_proba(train_x)
     p_test = r.predict_proba(test_x)
     if LCurve: plot_learning_curve_std(rfc, train_x, train_y)
-    return p_train,p_test
+    return p_train, p_test, acc
 
 def main():
     pd.options.display.max_rows = 10
@@ -213,15 +215,19 @@ def main():
     df_test.to_csv(TESTSET_CSV)
     #Convert description text into a vetor of features. Train_x,test_x are in sparse matrix format
     train_x, test_x = vectordsc(vector_dataframe['Description'], df_train['Description'], df_test['Description'] )
-    
+    acuracy = []
     for i in ["Novelty", "Usefulness"]:
         '''MLPClassifier'''
+        
         print("************ MLP Classifier *************")
+        del acuracy[:] 
         #Stage 1  
         print("*** MLP Classifier - One stage - "+i+"5 ***")
-        p_train,p_test = MLPmodel(train_x, df_train[i+' '], test_x, df_test[i+' '])
+        p_train,p_test, acc = MLPmodel(train_x, df_train[i+' '], test_x, df_test[i+' '])
+        acuracy.append(["MLP Classifier - One stage - "+i+"5", float(acc)])
         print("*** MLP Classifier - One stage - "+i+"3 ***")
-        p_train2,p_test2 = MLPmodel(train_x, df_train[i+'3'], test_x, df_test[i+'3'])
+        p_train2,p_test2, acc = MLPmodel(train_x, df_train[i+'3'], test_x, df_test[i+'3'])
+        acuracy.append(["MLP Classifier - One stage - "+i+"3", float(acc)])
         
         #Stage 2
         df_train_prob = pd.DataFrame(p_train, columns = ['p1','p2','p3','p4','p5'])
@@ -229,28 +235,31 @@ def main():
         df_test_prob = pd.DataFrame(p_test, columns = ['p1','p2','p3','p4','p5'])
         test_x_s2 = pd.concat([df_test_prob,df_test['Files Changed'],df_test['nAdditions'],df_test['nDeletions'],df_test['Parents'],df_test['nWords']], axis=1)
         print("*** MLP Classifier - Two stage - "+i+"3 ***")
-        p_train_s2,p_test_s2 = MLPmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
-        
+        p_train_s2,p_test_s2, acc = MLPmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = False)
+        acuracy.append(["MLP Classifier - Two stage - "+i+"3", float(acc)])
         #Stage 2 in RF Model
         print("*** MLP stage one, RF stage two classifier - Two stage - "+i+"3 ***")
-        p_train_s2,p_test_s2 = RFCmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
-        
+        p_train_s2,p_test_s2, acc = RFCmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = False)
+        acuracy.append(["MLP stage one, RF stage two classifier - Two stage - "+i+"3", float(acc)])
         # Single stage
         train_x_1s = hstack((train_x,df_train['Files Changed'].astype(float).values[:, None], df_train['nAdditions'].astype(float).values[:, None], df_train['nDeletions'].astype(float).values[:, None], df_train['Parents'].astype(float).values[:, None] ,df_train['nWords'].astype(float).values[:, None]))
         test_x_1s = hstack((test_x,df_test['Files Changed'].astype(float).values[:, None], df_test['nAdditions'].astype(float).values[:, None], df_test['nDeletions'].astype(float).values[:, None], df_test['Parents'].astype(float).values[:, None], df_test['nWords'].astype(float).values[:, None]))
         print("*** MLP Classifier - One stage - All features - "+i+"5 ***")
-        p_train_1s,p_test_1s = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = True)
+        p_train_1s,p_test_1s, acc = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = False)
+        acuracy.append(["MLP Classifier - One stage - All features - "+i+"5", float(acc)])
         print("*** MLP Classifier - One stage - All features - "+i+"3 ***")
-        p_train3_1s,p_test3_1s = MLPmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
-        
+        p_train3_1s,p_test3_1s, acc = MLPmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
+        acuracy.append(["MLP Classifier - One stage - All features - "+i+"3", float(acc)])
         
         '''Random Forest'''
         print("************ Random Forest *************")
         #Stage 1  
         print("*** RF Classifier - One stage - "+i+"5 ***")
-        p_train,p_test = RFCmodel(train_x, df_train[i+' '], test_x, df_test[i+' '])
+        p_train,p_test,acc = RFCmodel(train_x, df_train[i+' '], test_x, df_test[i+' '])
+        acuracy.append(["RF Classifier - One stage - "+i+"5", float(acc)])
         print("*** RF Classifier - One stage - "+i+"3 ***")
-        p_train2,p_test2 = RFCmodel(train_x, df_train[i+'3'], test_x, df_test[i+'3'])
+        p_train2,p_test2,acc = RFCmodel(train_x, df_train[i+'3'], test_x, df_test[i+'3'])
+        acuracy.append(["RF Classifier - One stage - "+i+"3", float(acc)])
         
         #Stage 2
         df_train_prob = pd.DataFrame(p_train, columns = ['p1','p2','p3','p4','p5'])
@@ -258,17 +267,22 @@ def main():
         df_test_prob = pd.DataFrame(p_test, columns = ['p1','p2','p3','p4','p5'])
         test_x_s2 = pd.concat([df_test_prob,df_test['Files Changed'],df_test['nAdditions'],df_test['nDeletions'],df_test['Parents'],df_test['nWords']], axis=1)
         print("*** RF Classifier - Two stage - "+i+"3 ***")
-        p_train_s2,p_test_s2 = RFCmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
+        p_train_s2,p_test_s2,acc = RFCmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = False)
+        acuracy.append(["RF Classifier - Two stage - "+i+"3", float(acc)])
         
         print("*** RF stage  one and MLP stage 2 - Two stage - "+i+"3 ***")
-        p_train_s2,p_test_s2 = MLPmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = True)
-                
+        p_train_s2,p_test_s2,acc = MLPmodel(train_x_s2, df_train[i+'3'], test_x_s2, df_test[i+'3'], LCurve = False)
+        acuracy.append(["RF stage  one and MLP stage 2 - Two stage - "+i+"3", float(acc)])        
         # Single stage
         print("*** RF Classifier - One stage - All features - "+i+"5 ***")
-        p_train_1s,p_test_1s = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = True)
+        p_train_1s,p_test_1s, acc = RFCmodel(train_x_1s, df_train[i+' '], test_x_1s, df_test[i+' '], LCurve = False)
+        acuracy.append([" RF Classifier - One stage - All features - "+i+"5", float(acc)]) 
         print("*** RF Classifier - One stage - All features - "+i+"3 ***")
-        p_train3_1s,p_test3_1s = RFCmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
-            
+        p_train3_1s,p_test3_1s, acc = RFCmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
+        acuracy.append(["RF Classifier - One stage - All features - "+i+"3", float(acc)])  
+        
+        print("MAX ACCURACY - = ",max(acuracy, key=lambda x: x[1]))
+        
 if __name__ == '__main__':
   main()
   
