@@ -176,7 +176,7 @@ def vectordsc(corpus, train_text, test_text):
 def MLPmodel(train_x, train_y, test_x, test_y, LCurve = False):
     """MLP classifier model"""
     nn = MLPClassifier(
-                        hidden_layer_sizes=(100,),  activation='relu', solver='adam', alpha=0.001, batch_size='auto',
+                        hidden_layer_sizes=(100),  activation='relu', solver='adam', alpha=0.001, batch_size='auto',
                         learning_rate='constant', learning_rate_init=0.001, power_t=0.5, max_iter=1000, shuffle=True,
                         random_state=None, tol=0.0001, verbose=False, warm_start=False, momentum=0.9, nesterovs_momentum=True,
                         early_stopping=False, validation_fraction=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
@@ -216,11 +216,13 @@ def main():
     #Convert description text into a vetor of features. Train_x,test_x are in sparse matrix format
     train_x, test_x = vectordsc(vector_dataframe['Description'], df_train['Description'], df_test['Description'] )
     acuracy = []
+    macc = []
     for i in ["Novelty", "Usefulness"]:
         '''MLPClassifier'''
         
         print("************ MLP Classifier *************")
         del acuracy[:] 
+        del macc[:] 
         #Stage 1  
         print("*** MLP Classifier - One stage - "+i+"5 ***")
         p_train,p_test, acc = MLPmodel(train_x, df_train[i+' '], test_x, df_test[i+' '])
@@ -281,7 +283,13 @@ def main():
         p_train3_1s,p_test3_1s, acc = RFCmodel(train_x_1s, df_train[i+'3'], test_x_1s, df_test[i+'3'], LCurve = True)
         acuracy.append(["RF Classifier - One stage - All features - "+i+"3", float(acc)])  
         
-        print("MAX ACCURACY - = ",max(acuracy, key=lambda x: x[1]))
+        #Print Max accuracy scores and models
+        macc = max(acuracy, key=lambda x: x[1])
+        print("MAX ACCURACY - = ",macc)
+        if macc[1] > 0.5: return
+        
+        
+        #Run untill max accuracy in 70%
         
 if __name__ == '__main__':
   main()
